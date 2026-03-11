@@ -1,4 +1,4 @@
-name: Deep Wake Up (Simulated Browser)
+name: Force Wake Up (Click Button)
 
 on:
   schedule:
@@ -6,13 +6,59 @@ on:
   workflow_dispatch:
 
 jobs:
-  ping:
+  wake-up:
     runs-on: ubuntu-latest
     steps:
-      - name: Simulando Visita Completa
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Puppeteer
+        run: npm install puppeteer
+
+      - name: Execute Click and Wake Up
         run: |
-          # Usamos o User-Agent para parecer um navegador real
-          # O parâmetro -L segue redirecionamentos (importante para telas de wakeup)
-          curl -L -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36" \
-          https://unable-to-assist-2.preview.emergentagent.com/ \
-          -o /dev/null -s -w "Status da Visita: %{http_code}\n"
+          node -e "
+          const puppeteer = require('puppeteer');
+          (async () => {
+            const browser = await puppeteer.launch({ 
+              headless: 'new',
+              args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+            });
+            const page = await browser.newPage();
+            try {
+              console.log('Navegando até o site...');
+              await page.goto('https://unable-to-assist-2.preview.emergentagent.com/', { waitUntil: 'networkidle2' });
+              
+              console.log('Procurando pelo botão Wake up servers...');
+              
+              // Espera o botão aparecer na tela
+              await page.waitForSelector('button', { timeout: 10000 });
+
+              // Lógica para encontrar o botão pelo texto exato e clicar
+              const clicked = await page.evaluate(() => {
+                const buttons = Array.from(document.querySelectorAll('button'));
+                const wakeButton = buttons.find(btn => btn.innerText.includes('Wake up servers'));
+                if (wakeButton) {
+                  wakeButton.click();
+                  return true;
+                }
+                return false;
+              });
+
+              if (clicked) {
+                console.log('Sucesso! O botão foi clicado.');
+                // Espera 10 segundos após o clique para o backend processar a ativação
+                await new Promise(r => setTimeout(r, 10000));
+              } else {
+                console.log('Botão não encontrado (talvez o servidor já estivesse acordado).');
+              }
+
+            } catch (error) {
+              console.error('Erro durante a execução:', error.message);
+            } finally {
+              await browser.close();
+            }
+          })();
+          "
