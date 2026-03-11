@@ -1,1 +1,21 @@
+name: Optimized Wake Up (Emergent Project)
 
+on:
+  schedule:
+    # Ajustado para cada 12 minutos (Otimizado para limites de 15/30 min)
+    - cron: '*/12 * * * *'
+  workflow_dispatch: # Permite que você teste manualmente se precisar
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping do Servidor (Pre-Sleep Prevention)
+        run: |
+          STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://unable-to-assist-2.preview.emergentagent.com/)
+          echo "Servidor respondendo com Status: $STATUS_CODE"
+          if [ "$STATUS_CODE" -eq 200 ]; then
+            echo "Sucesso: O servidor foi mantido acordado."
+          else
+            echo "Atenção: Status inesperado ($STATUS_CODE), mas o acesso foi registrado."
+          fi
