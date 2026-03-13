@@ -1,8 +1,8 @@
-name: Force Wake Up (Click Button)
+name: Ultimate Wake Up (No-Sleep Mode)
 
 on:
   schedule:
-    - cron: '*/12 * * * *'
+    - cron: '*/4 * * * *' # Agora a cada 4 minutos para não dar chance ao sono
   workflow_dispatch:
 
 jobs:
@@ -17,7 +17,7 @@ jobs:
       - name: Install Puppeteer
         run: npm install puppeteer
 
-      - name: Execute Click and Wake Up
+      - name: Execute Deep Search and Click
         run: |
           node -e "
           const puppeteer = require('puppeteer');
@@ -27,36 +27,57 @@ jobs:
               args: ['--no-sandbox', '--disable-setuid-sandbox'] 
             });
             const page = await browser.newPage();
+            // Define um tamanho de tela de celular moderno
+            await page.setViewport({width: 390, height: 844});
+            
             try {
-              console.log('Navegando até o site...');
-              await page.goto('https://unable-to-assist-2.preview.emergentagent.com/', { waitUntil: 'networkidle2' });
+              console.log('Navegando... [' + new Date().toLocaleTimeString() + ']');
+              await page.goto('https://unable-to-assist-2.preview.emergentagent.com/', { 
+                waitUntil: 'networkidle0', 
+                timeout: 30000 
+              });
               
-              console.log('Procurando pelo botão Wake up servers...');
-              
-              // Espera o botão aparecer na tela
-              await page.waitForSelector('button', { timeout: 10000 });
+              await new Promise(r => setTimeout(r, 5000)); // Espera 5s para o overlay carregar
 
-              // Lógica para encontrar o botão pelo texto exato e clicar
+              // Tenta clicar no botão mesmo que ele esteja escondido em Iframes ou Shadow DOM
               const clicked = await page.evaluate(() => {
-                const buttons = Array.from(document.querySelectorAll('button'));
-                const wakeButton = buttons.find(btn => btn.innerText.includes('Wake up servers'));
-                if (wakeButton) {
-                  wakeButton.click();
-                  return true;
+                const clickAnywhereWithText = (root, text) => {
+                  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+                  let node;
+                  while(node = walker.nextNode()) {
+                    if (node.tagName === 'BUTTON' || node.tagName === 'A' || node.tagName === 'DIV') {
+                      if (node.innerText && node.innerText.toLowerCase().includes(text.toLowerCase())) {
+                        node.click();
+                        return true;
+                      }
+                    }
+                  }
+                  return false;
+                };
+                
+                // Procura na página principal
+                let found = clickAnywhereWithText(document.body, 'Wake up');
+                
+                // Se não achou, procura dentro de todos os Iframes
+                if (!found) {
+                  const iframes = document.querySelectorAll('iframe');
+                  for (const f of iframes) {
+                    try {
+                      found = clickAnywhereWithText(f.contentDocument.body, 'Wake up');
+                      if (found) break;
+                    } catch(e) {}
+                  }
                 }
-                return false;
+                return found;
               });
 
-              if (clicked) {
-                console.log('Sucesso! O botão foi clicado.');
-                // Espera 10 segundos após o clique para o backend processar a ativação
-                await new Promise(r => setTimeout(r, 10000));
-              } else {
-                console.log('Botão não encontrado (talvez o servidor já estivesse acordado).');
-              }
+              console.log(clicked ? 'BOTÃO CLICADO COM SUCESSO!' : 'Botão não visível (Sistema deve estar ativo).');
+              
+              // Garante que a requisição de despertar seja enviada
+              await new Promise(r => setTimeout(r, 8000));
 
             } catch (error) {
-              console.error('Erro durante a execução:', error.message);
+              console.error('Erro na tentativa:', error.message);
             } finally {
               await browser.close();
             }
