@@ -1,16 +1,15 @@
-name: Ghost Session Active (Infinite Loop)
+name: Absolute Force Wakeup (Physical Click)
 
 on:
   schedule:
-    - cron: '*/20 * * * *' # Inicia uma nova sessão longa a cada 20 min
+    - cron: '*/5 * * * *' # Voltamos para 5 min para garantir pressão constante
   workflow_dispatch:
 
 jobs:
-  ghost-session:
+  physical-click:
     runs-on: ubuntu-latest
-    timeout-minutes: 25 # Garante que o GitHub não corte o script antes da hora
     steps:
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v3
         with:
           node-version: '18'
@@ -18,50 +17,53 @@ jobs:
       - name: Install Puppeteer
         run: npm install puppeteer
 
-      - name: Persistent Interaction Session
+      - name: Force Physical Interaction
         run: |
           node -e "
           const puppeteer = require('puppeteer');
           (async () => {
-            const browser = await puppeteer.launch({ 
-              headless: 'new',
-              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'] 
-            });
+            const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
             const page = await browser.newPage();
-            // Remove a marca de 'robô' do navegador
-            await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1');
-
+            // Simulamos um celular para o botão ficar exatamente onde vimos no seu print
+            await page.setViewport({width: 390, height: 844});
+            
             try {
-              console.log('Iniciando Sessão Fantasma de 20 minutos...');
+              console.log('Navegando até o alvo...');
               await page.goto('https://unable-to-assist-2.preview.emergentagent.com/', { waitUntil: 'networkidle2' });
+              
+              await new Promise(r => setTimeout(r, 8000)); // Espera o banner carregar bem
 
-              // 1. Tenta o clique inicial no botão se ele existir
-              await page.evaluate(() => {
-                const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.includes('Wake up'));
-                if (btn) btn.click();
-              });
+              // Em vez de procurar o botão pelo nome, vamos clicar na área onde ele aparece no print
+              // No viewport 390x844, o botão de Wakeup costuma ficar na metade inferior.
+              console.log('Disparando cliques em massa na área do botão...');
+              
+              const locations = [
+                {x: 195, y: 700}, // Centro inferior
+                {x: 195, y: 710},
+                {x: 195, y: 690}
+              ];
 
-              // 2. Loop de Interação: O segredo está aqui
-              // Vamos simular movimentos e scrolls por 18 minutos (1080 segundos)
-              for (let i = 0; i < 180; i++) {
-                // Rola a página para baixo e para cima
-                await page.evaluate(() => window.scrollBy(0, 50));
-                await new Promise(r => setTimeout(r, 3000));
-                await page.evaluate(() => window.scrollBy(0, -50));
-                
-                // A cada 30 segundos, dá um clique em um ponto neutro da tela
-                if (i % 10 === 0) {
-                  await page.mouse.click(100, 100);
-                  console.log('Interação de persistência realizada... [' + new Date().toLocaleTimeString() + ']');
-                }
-                
-                await new Promise(r => setTimeout(r, 3000));
+              for (const loc of locations) {
+                await page.mouse.click(loc.x, loc.y);
+                console.log('Clique físico enviado para: ' + loc.x + ',' + loc.y);
+                await new Promise(r => setTimeout(r, 1000));
               }
 
-              console.log('Sessão finalizada com sucesso.');
+              // Tentativa bônus: Tentar clicar pelo seletor de classe que o Emergent costuma usar
+              await page.evaluate(() => {
+                const buttons = Array.from(document.querySelectorAll('button, div, span'));
+                const target = buttons.find(el => el.innerText && el.innerText.toLowerCase().includes('wake up'));
+                if (target) {
+                  target.scrollIntoView();
+                  target.click();
+                }
+              });
 
-            } catch (error) {
-              console.error('Erro na sessão:', error.message);
+              console.log('Processo finalizado. Verifique o site agora.');
+              await new Promise(r => setTimeout(r, 5000));
+
+            } catch (e) {
+              console.log('Erro: ' + e.message);
             } finally {
               await browser.close();
             }
