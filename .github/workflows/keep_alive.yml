@@ -1,8 +1,8 @@
-name: Absolute Force Wakeup (Physical Click)
+name: Absolute Force Wakeup with Alert
 
 on:
   schedule:
-    - cron: '*/5 * * * *' # Voltamos para 5 min para garantir pressão constante
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -24,46 +24,33 @@ jobs:
           (async () => {
             const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
             const page = await browser.newPage();
-            // Simulamos um celular para o botão ficar exatamente onde vimos no seu print
             await page.setViewport({width: 390, height: 844});
             
             try {
-              console.log('Navegando até o alvo...');
-              await page.goto('https://unable-to-assist-2.preview.emergentagent.com/', { waitUntil: 'networkidle2' });
-              
-              await new Promise(r => setTimeout(r, 8000)); // Espera o banner carregar bem
-
-              // Em vez de procurar o botão pelo nome, vamos clicar na área onde ele aparece no print
-              // No viewport 390x844, o botão de Wakeup costuma ficar na metade inferior.
-              console.log('Disparando cliques em massa na área do botão...');
-              
-              const locations = [
-                {x: 195, y: 700}, // Centro inferior
-                {x: 195, y: 710},
-                {x: 195, y: 690}
-              ];
-
-              for (const loc of locations) {
-                await page.mouse.click(loc.x, loc.y);
-                console.log('Clique físico enviado para: ' + loc.x + ',' + loc.y);
-                await new Promise(r => setTimeout(r, 1000));
-              }
-
-              // Tentativa bônus: Tentar clicar pelo seletor de classe que o Emergent costuma usar
-              await page.evaluate(() => {
-                const buttons = Array.from(document.querySelectorAll('button, div, span'));
-                const target = buttons.find(el => el.innerText && el.innerText.toLowerCase().includes('wake up'));
-                if (target) {
-                  target.scrollIntoView();
-                  target.click();
-                }
+              console.log('Tentativa de acesso: ' + new Date().toISOString());
+              const response = await page.goto('https://unable-to-assist-2.preview.emergentagent.com/', { 
+                waitUntil: 'networkidle2',
+                timeout: 45000 
               });
 
-              console.log('Processo finalizado. Verifique o site agora.');
-              await new Promise(r => setTimeout(r, 5000));
+              // ALERTA 1: Verifica se o site sequer respondeu
+              if (!response || response.status() >= 400) {
+                throw new Error('SITE FORA DO AR! Status: ' + (response ? response.status() : 'Sem Resposta'));
+              }
+              
+              await new Promise(r => setTimeout(r, 8000));
+
+              // Dispara os cliques físicos
+              const locations = [{x: 195, y: 700}, {x: 195, y: 710}];
+              for (const loc of locations) {
+                await page.mouse.click(loc.x, loc.y);
+              }
+
+              console.log('Interação concluída com sucesso.');
 
             } catch (e) {
-              console.log('Erro: ' + e.message);
+              console.error('ALERTA DE FALHA: ' + e.message);
+              process.exit(1); // Força o GitHub a mostrar o ícone VERMELHO de erro
             } finally {
               await browser.close();
             }
