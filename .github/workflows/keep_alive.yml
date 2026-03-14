@@ -1,13 +1,14 @@
-name: Ultimate Wake Up (No-Sleep Mode)
+name: Ghost Session Active (Infinite Loop)
 
 on:
   schedule:
-    - cron: '*/4 * * * *' # Agora a cada 4 minutos para não dar chance ao sono
+    - cron: '*/20 * * * *' # Inicia uma nova sessão longa a cada 20 min
   workflow_dispatch:
 
 jobs:
-  wake-up:
+  ghost-session:
     runs-on: ubuntu-latest
+    timeout-minutes: 25 # Garante que o GitHub não corte o script antes da hora
     steps:
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -17,67 +18,50 @@ jobs:
       - name: Install Puppeteer
         run: npm install puppeteer
 
-      - name: Execute Deep Search and Click
+      - name: Persistent Interaction Session
         run: |
           node -e "
           const puppeteer = require('puppeteer');
           (async () => {
             const browser = await puppeteer.launch({ 
               headless: 'new',
-              args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'] 
             });
             const page = await browser.newPage();
-            // Define um tamanho de tela de celular moderno
-            await page.setViewport({width: 390, height: 844});
-            
+            // Remove a marca de 'robô' do navegador
+            await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1');
+
             try {
-              console.log('Navegando... [' + new Date().toLocaleTimeString() + ']');
-              await page.goto('https://unable-to-assist-2.preview.emergentagent.com/', { 
-                waitUntil: 'networkidle0', 
-                timeout: 30000 
-              });
-              
-              await new Promise(r => setTimeout(r, 5000)); // Espera 5s para o overlay carregar
+              console.log('Iniciando Sessão Fantasma de 20 minutos...');
+              await page.goto('https://unable-to-assist-2.preview.emergentagent.com/', { waitUntil: 'networkidle2' });
 
-              // Tenta clicar no botão mesmo que ele esteja escondido em Iframes ou Shadow DOM
-              const clicked = await page.evaluate(() => {
-                const clickAnywhereWithText = (root, text) => {
-                  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
-                  let node;
-                  while(node = walker.nextNode()) {
-                    if (node.tagName === 'BUTTON' || node.tagName === 'A' || node.tagName === 'DIV') {
-                      if (node.innerText && node.innerText.toLowerCase().includes(text.toLowerCase())) {
-                        node.click();
-                        return true;
-                      }
-                    }
-                  }
-                  return false;
-                };
+              // 1. Tenta o clique inicial no botão se ele existir
+              await page.evaluate(() => {
+                const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.includes('Wake up'));
+                if (btn) btn.click();
+              });
+
+              // 2. Loop de Interação: O segredo está aqui
+              // Vamos simular movimentos e scrolls por 18 minutos (1080 segundos)
+              for (let i = 0; i < 180; i++) {
+                // Rola a página para baixo e para cima
+                await page.evaluate(() => window.scrollBy(0, 50));
+                await new Promise(r => setTimeout(r, 3000));
+                await page.evaluate(() => window.scrollBy(0, -50));
                 
-                // Procura na página principal
-                let found = clickAnywhereWithText(document.body, 'Wake up');
-                
-                // Se não achou, procura dentro de todos os Iframes
-                if (!found) {
-                  const iframes = document.querySelectorAll('iframe');
-                  for (const f of iframes) {
-                    try {
-                      found = clickAnywhereWithText(f.contentDocument.body, 'Wake up');
-                      if (found) break;
-                    } catch(e) {}
-                  }
+                // A cada 30 segundos, dá um clique em um ponto neutro da tela
+                if (i % 10 === 0) {
+                  await page.mouse.click(100, 100);
+                  console.log('Interação de persistência realizada... [' + new Date().toLocaleTimeString() + ']');
                 }
-                return found;
-              });
+                
+                await new Promise(r => setTimeout(r, 3000));
+              }
 
-              console.log(clicked ? 'BOTÃO CLICADO COM SUCESSO!' : 'Botão não visível (Sistema deve estar ativo).');
-              
-              // Garante que a requisição de despertar seja enviada
-              await new Promise(r => setTimeout(r, 8000));
+              console.log('Sessão finalizada com sucesso.');
 
             } catch (error) {
-              console.error('Erro na tentativa:', error.message);
+              console.error('Erro na sessão:', error.message);
             } finally {
               await browser.close();
             }
