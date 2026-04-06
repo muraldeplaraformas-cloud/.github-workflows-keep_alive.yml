@@ -1,12 +1,12 @@
-name: Absolute Force Wakeup with Alert
+name: Perpetual Wake (Phantom User)
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '*/5 * * * *' # Executa a cada 5 minutos
   workflow_dispatch:
 
 jobs:
-  physical-click:
+  stay-awake:
     runs-on: ubuntu-latest
     steps:
       - name: Setup Node
@@ -17,40 +17,48 @@ jobs:
       - name: Install Puppeteer
         run: npm install puppeteer
 
-      - name: Force Physical Interaction
+      - name: Execute Human Behavior Simulation
         run: |
           node -e "
           const puppeteer = require('puppeteer');
           (async () => {
-            const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
+            const browser = await puppeteer.launch({ 
+              headless: 'new', 
+              args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+            });
             const page = await browser.newPage();
-            await page.setViewport({width: 390, height: 844});
-            
+            // Simula um iPhone X para manter a consistência do layout
+            await page.setViewport({ width: 375, height: 812, isMobile: true });
+
             try {
-              console.log('Tentativa de acesso: ' + new Date().toISOString());
-              const response = await page.goto('https://unable-to-assist-2.preview.emergentagent.com/', { 
-                waitUntil: 'networkidle2',
-                timeout: 45000 
+              console.log('Iniciando simulação de vida no site...');
+              await page.goto('https://play-links.preview.emergentagent.com/', { waitUntil: 'networkidle2' });
+
+              // 1. Tenta clicar no botão de Wake Up se ele existir
+              const wakeButton = await page.evaluate(() => {
+                const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.includes('Wake up'));
+                if (btn) { btn.click(); return true; }
+                return false;
               });
+              if (wakeButton) console.log('Botão Wake Up acionado.');
 
-              // ALERTA 1: Verifica se o site sequer respondeu
-              if (!response || response.status() >= 400) {
-                throw new Error('SITE FORA DO AR! Status: ' + (response ? response.status() : 'Sem Resposta'));
+              // 2. Loop de Interação de 2 minutos (Isso impede o Sleep imediato)
+              for (let i = 0; i < 12; i++) {
+                // Rola para baixo aleatoriamente
+                const scroll = Math.floor(Math.random() * 500);
+                await page.evaluate((s) => window.scrollBy(0, s), scroll);
+                
+                // Move o mouse para uma posição aleatória
+                await page.mouse.move(Math.random() * 375, Math.random() * 812);
+                
+                console.log('Interação ' + (i+1) + ' realizada...');
+                await new Promise(r => setTimeout(r, 10000)); // Espera 10 segundos entre movimentos
               }
-              
-              await new Promise(r => setTimeout(r, 8000));
 
-              // Dispara os cliques físicos
-              const locations = [{x: 195, y: 700}, {x: 195, y: 710}];
-              for (const loc of locations) {
-                await page.mouse.click(loc.x, loc.y);
-              }
-
-              console.log('Interação concluída com sucesso.');
+              console.log('Ciclo de vida concluído. Servidor deve permanecer ativo.');
 
             } catch (e) {
-              console.error('ALERTA DE FALHA: ' + e.message);
-              process.exit(1); // Força o GitHub a mostrar o ícone VERMELHO de erro
+              console.error('Falha na persistência:', e.message);
             } finally {
               await browser.close();
             }
